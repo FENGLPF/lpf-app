@@ -25,6 +25,7 @@ onMounted(() => {
   let width = 0
   let height = 0
   let time = 0
+  let heartPointsCount = 0
 
   const heartPosition = (radian) => [
     Math.sin(radian) ** 3,
@@ -36,11 +37,32 @@ onMounted(() => {
     deltaY + position[1] * scaleY,
   ]
 
+  const buildHeartPoints = () => {
+    pointsOrigin.length = 0
+    const outerScaleX = Math.min(width * 0.42, height * 0.7)
+    const outerScaleY = outerScaleX / 16.15
+
+    for (let radian = 0; radian < Math.PI * 2; radian += step) {
+      pointsOrigin.push(scaleAndTranslate(heartPosition(radian), outerScaleX, outerScaleY, 0, 0))
+    }
+
+    for (let radian = 0; radian < Math.PI * 2; radian += step) {
+      pointsOrigin.push(scaleAndTranslate(heartPosition(radian), outerScaleX * 0.72, outerScaleY * 0.72, 0, 0))
+    }
+
+    for (let radian = 0; radian < Math.PI * 2; radian += step) {
+      pointsOrigin.push(scaleAndTranslate(heartPosition(radian), outerScaleX * 0.43, outerScaleY * 0.43, 0, 0))
+    }
+
+    heartPointsCount = pointsOrigin.length
+  }
+
   const resize = () => {
     width = canvas.width = coefficient * window.innerWidth
     height = canvas.height = coefficient * window.innerHeight
     canvas.style.width = `${window.innerWidth}px`
     canvas.style.height = `${window.innerHeight}px`
+    buildHeartPoints()
     context.fillStyle = 'rgba(0,0,0,1)'
     context.fillRect(0, 0, width, height)
   }
@@ -53,20 +75,6 @@ onMounted(() => {
       ]
     }
   }
-
-  for (let radian = 0; radian < Math.PI * 2; radian += step) {
-    pointsOrigin.push(scaleAndTranslate(heartPosition(radian), 210, 13, 0, 0))
-  }
-
-  for (let radian = 0; radian < Math.PI * 2; radian += step) {
-    pointsOrigin.push(scaleAndTranslate(heartPosition(radian), 150, 9, 0, 0))
-  }
-
-  for (let radian = 0; radian < Math.PI * 2; radian += step) {
-    pointsOrigin.push(scaleAndTranslate(heartPosition(radian), 90, 5, 0, 0))
-  }
-
-  const heartPointsCount = pointsOrigin.length
 
   resize()
 
