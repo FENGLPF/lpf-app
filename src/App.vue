@@ -7,16 +7,13 @@ let animationFrame = 0
 onMounted(() => {
   const canvas = canvasRef.value
   const context = canvas.getContext('2d')
-  const isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(
-    (navigator.userAgent || navigator.vendor || window.opera).toLowerCase(),
-  )
-  const coefficient = isMobile ? 0.5 : 1
+  const pixelRatio = Math.min(window.devicePixelRatio || 1, 2)
   const random = Math.random
   const particles = []
   const pointsOrigin = []
   const targetPoints = []
-  const traceCount = isMobile ? 20 : 50
-  const step = isMobile ? 0.3 : 0.1
+  const traceCount = 50
+  const step = 0.1
   const config = {
     traceK: 0.4,
     timeDelta: 0.01,
@@ -39,7 +36,8 @@ onMounted(() => {
 
   const buildHeartPoints = () => {
     pointsOrigin.length = 0
-    const outerScaleX = Math.min(width * 0.42, height * 0.7)
+    const fitSize = Math.min(width * 0.82, height * 0.72)
+    const outerScaleX = fitSize / 2
     const outerScaleY = outerScaleX / 16.15
 
     for (let radian = 0; radian < Math.PI * 2; radian += step) {
@@ -58,10 +56,14 @@ onMounted(() => {
   }
 
   const resize = () => {
-    width = canvas.width = coefficient * window.innerWidth
-    height = canvas.height = coefficient * window.innerHeight
-    canvas.style.width = `${window.innerWidth}px`
-    canvas.style.height = `${window.innerHeight}px`
+    const viewportWidth = window.innerWidth
+    const viewportHeight = window.innerHeight
+    width = viewportWidth * pixelRatio
+    height = viewportHeight * pixelRatio
+    canvas.width = width
+    canvas.height = height
+    canvas.style.width = `${viewportWidth}px`
+    canvas.style.height = `${viewportHeight}px`
     buildHeartPoints()
     context.fillStyle = 'rgba(0,0,0,1)'
     context.fillRect(0, 0, width, height)
