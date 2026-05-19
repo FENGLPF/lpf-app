@@ -1,166 +1,251 @@
 <script setup>
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 
-const canvas = ref(null)
+const canvasRef = ref(null)
 let animationFrame = 0
 
-const heartPoint = (t) => {
-  const x = 16 * Math.sin(t) ** 3
-  const y =
-    13 * Math.cos(t) -
-    5 * Math.cos(2 * t) -
-    2 * Math.cos(3 * t) -
-    Math.cos(4 * t)
+const vertexSource = `
+attribute vec2 position;
+void main() {
+  gl_Position = vec4(position, 0.0, 1.0);
+}
+`
 
-  return { x, y: -y }
+const fragmentSource = `
+precision highp float;
+
+uniform float width;
+uniform float height;
+vec2 resolution = vec2(width, height);
+
+uniform float time;
+
+#define POINT_COUNT 8
+
+vec2 points[POINT_COUNT];
+const float speed = -0.5;
+const float len = 0.25;
+float intensity = 1.3;
+float radius = 0.008;
+
+float sdBezier(vec2 pos, vec2 A, vec2 B, vec2 C){
+  vec2 a = B - A;
+  vec2 b = A - 2.0*B + C;
+  vec2 c = a * 2.0;
+  vec2 d = A - pos;
+
+  float kk = 1.0 / dot(b,b);
+  float kx = kk * dot(a,b);
+  float ky = kk * (2.0*dot(a,a)+dot(d,b)) / 3.0;
+  float kz = kk * dot(d,a);
+
+  float res = 0.0;
+
+  float p = ky - kx*kx;
+  float p3 = p*p*p;
+  float q = kx*(2.0*kx*kx - 3.0*ky) + kz;
+  float h = q*q + 4.0*p3;
+
+  if(h >= 0.0){
+    h = sqrt(h);
+    vec2 x = (vec2(h, -h) - q) / 2.0;
+    vec2 uv = sign(x)*pow(abs(x), vec2(1.0/3.0));
+    float t = uv.x + uv.y - kx;
+    t = clamp(t, 0.0, 1.0);
+
+    vec2 qos = d + (c + b*t)*t;
+    res = length(qos);
+  }else{
+    float z = sqrt(-p);
+    float v = acos(q/(p*z*2.0)) / 3.0;
+    float m = cos(v);
+    float n = sin(v)*1.732050808;
+    vec3 t = vec3(m + m, -n - m, n - m) * z - kx;
+    t = clamp(t, 0.0, 1.0);
+
+    vec2 qos = d + (c + b*t.x)*t.x;
+    float dis = dot(qos,qos);
+
+    res = dis;
+
+    qos = d + (c + b*t.y)*t.y;
+    dis = dot(qos,qos);
+    res = min(res,dis);
+
+    qos = d + (c + b*t.z)*t.z;
+    dis = dot(qos,qos);
+    res = min(res,dis);
+
+    res = sqrt(res);
+  }
+
+  return res;
+}
+
+vec2 getHeartPosition(float t){
+  return vec2(16.0 * sin(t) * sin(t) * sin(t),
+              -(13.0 * cos(t) - 5.0 * cos(2.0*t)
+              - 2.0 * cos(3.0*t) - cos(4.0*t)));
+}
+
+float getGlow(float dist, float radius, float intensity){
+  return pow(radius/dist, intensity);
+}
+
+float getSegment(float t, vec2 pos, float offset, float scale){
+  for(int i = 0; i < POINT_COUNT; i++){
+    points[i] = getHeartPosition(offset + float(i)*len + fract(speed * t) * 6.28);
+  }
+
+  vec2 c = (points[0] + points[1]) / 2.0;
+  vec2 c_prev;
+  float dist = 10000.0;
+
+  for(int i = 0; i < POINT_COUNT-1; i++){
+    c_prev = c;
+    c = (points[i] + points[i+1]) / 2.0;
+    dist = min(dist, sdBezier(pos, scale * c_prev, scale * points[i], scale * c));
+  }
+  return max(0.0, dist);
+}
+
+void main(){
+  vec2 uv = gl_FragCoord.xy/resolution.xy;
+  float widthHeightRatio = resolution.x/resolution.y;
+  vec2 centre = vec2(0.5, 0.5);
+  vec2 pos = centre - uv;
+  pos.y /= widthHeightRatio;
+  pos.y += 0.02;
+  float scale = 0.000015 * height;
+
+  float t = time;
+
+  float dist = getSegment(t, pos, 0.0, scale);
+  float glow = getGlow(dist, radius, intensity);
+
+  vec3 col = vec3(0.0);
+
+  col += 10.0*vec3(smoothstep(0.003, 0.001, dist));
+  col += glow * vec3(1.0,0.05,0.3);
+
+  dist = getSegment(t, pos, 3.4, scale);
+  glow = getGlow(dist, radius, intensity);
+
+  col += 10.0*vec3(smoothstep(0.003, 0.001, dist));
+  col += glow * vec3(0.1,0.4,1.0);
+
+  col = 1.0 - exp(-col);
+  col = pow(col, vec3(0.4545));
+
+  gl_FragColor = vec4(col,1.0);
+}
+`
+
+const compileShader = (gl, shaderSource, shaderType) => {
+  const shader = gl.createShader(shaderType)
+  gl.shaderSource(shader, shaderSource)
+  gl.compileShader(shader)
+
+  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+    throw new Error(`Shader compile failed: ${gl.getShaderInfoLog(shader)}`)
+  }
+
+  return shader
+}
+
+const getAttribLocation = (gl, program, name) => {
+  const location = gl.getAttribLocation(program, name)
+
+  if (location === -1) {
+    throw new Error(`Cannot find attribute ${name}.`)
+  }
+
+  return location
+}
+
+const getUniformLocation = (gl, program, name) => {
+  const location = gl.getUniformLocation(program, name)
+
+  if (location === -1) {
+    throw new Error(`Cannot find uniform ${name}.`)
+  }
+
+  return location
 }
 
 onMounted(() => {
-  const element = canvas.value
-  const context = element.getContext('2d')
-  const particles = []
-  const twinkles = []
-  let width = 0
-  let height = 0
-  let pixelRatio = 1
+  const canvas = canvasRef.value
+  const gl = canvas.getContext('webgl')
+
+  if (!gl) {
+    throw new Error('Unable to initialize WebGL.')
+  }
+
+  const vertexShader = compileShader(gl, vertexSource, gl.VERTEX_SHADER)
+  const fragmentShader = compileShader(gl, fragmentSource, gl.FRAGMENT_SHADER)
+  const program = gl.createProgram()
+
+  gl.attachShader(program, vertexShader)
+  gl.attachShader(program, fragmentShader)
+  gl.linkProgram(program)
+  gl.useProgram(program)
+
+  const vertexData = new Float32Array([
+    -1.0, 1.0,
+    -1.0, -1.0,
+    1.0, 1.0,
+    1.0, -1.0,
+  ])
+
+  const vertexDataBuffer = gl.createBuffer()
+  gl.bindBuffer(gl.ARRAY_BUFFER, vertexDataBuffer)
+  gl.bufferData(gl.ARRAY_BUFFER, vertexData, gl.STATIC_DRAW)
+
+  const positionHandle = getAttribLocation(gl, program, 'position')
+
+  gl.enableVertexAttribArray(positionHandle)
+  gl.vertexAttribPointer(positionHandle, 2, gl.FLOAT, false, 2 * 4, 0)
+
+  const timeHandle = getUniformLocation(gl, program, 'time')
+  const widthHandle = getUniformLocation(gl, program, 'width')
+  const heightHandle = getUniformLocation(gl, program, 'height')
+  let time = 0
+  let lastFrame = Date.now()
 
   const resize = () => {
-    pixelRatio = Math.min(window.devicePixelRatio || 1, 2)
-    width = window.innerWidth
-    height = window.innerHeight
-    element.width = width * pixelRatio
-    element.height = height * pixelRatio
-    element.style.width = `${width}px`
-    element.style.height = `${height}px`
-    context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0)
+    canvas.width = window.innerWidth
+    canvas.height = window.innerHeight
+    gl.viewport(0, 0, canvas.width, canvas.height)
+    gl.uniform1f(widthHandle, window.innerWidth)
+    gl.uniform1f(heightHandle, window.innerHeight)
   }
 
-  const createParticles = () => {
-    particles.length = 0
-    const count = Math.min(1100, Math.max(520, Math.floor(width * height / 1450)))
+  const draw = () => {
+    const thisFrame = Date.now()
+    time += (thisFrame - lastFrame) / 1000
+    lastFrame = thisFrame
 
-    for (let index = 0; index < count; index += 1) {
-      const t = Math.random() * Math.PI * 2
-      const point = heartPoint(t)
-      const depth = Math.random() ** 0.58
-      const jitter = (1 - depth) * 0.9
+    gl.uniform1f(timeHandle, time)
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
 
-      particles.push({
-        x: point.x + (Math.random() - 0.5) * jitter,
-        y: point.y + (Math.random() - 0.5) * jitter,
-        depth,
-        size: 0.7 + Math.random() * 2.2,
-        phase: Math.random() * Math.PI * 2,
-        speed: 0.7 + Math.random() * 1.6,
-        hue: 336 + Math.random() * 24,
-      })
-    }
-  }
-
-  const createTwinkles = () => {
-    twinkles.length = 0
-
-    for (let index = 0; index < 80; index += 1) {
-      twinkles.push({
-        x: Math.random() * width,
-        y: Math.random() * height,
-        size: Math.random() * 1.7 + 0.4,
-        phase: Math.random() * Math.PI * 2,
-        speed: Math.random() * 0.9 + 0.25,
-      })
-    }
-  }
-
-  const reset = () => {
-    resize()
-    createParticles()
-    createTwinkles()
-  }
-
-  const draw = (time) => {
-    const seconds = time / 1000
-    const centerX = width / 2
-    const centerY = height / 2 + Math.min(height * 0.035, 28)
-    const scaleBase = Math.min(width, height) / 39
-    const beat =
-      1 +
-      Math.max(0, Math.sin(seconds * Math.PI * 1.75)) ** 8 * 0.12 +
-      Math.sin(seconds * Math.PI * 3.5) * 0.012
-
-    context.globalCompositeOperation = 'source-over'
-    context.fillStyle = 'rgba(5, 4, 13, 0.22)'
-    context.fillRect(0, 0, width, height)
-
-    const halo = context.createRadialGradient(centerX, centerY, 10, centerX, centerY, scaleBase * 18)
-    halo.addColorStop(0, 'rgba(255, 48, 128, 0.28)')
-    halo.addColorStop(0.45, 'rgba(164, 33, 255, 0.08)')
-    halo.addColorStop(1, 'rgba(5, 4, 13, 0)')
-    context.fillStyle = halo
-    context.fillRect(0, 0, width, height)
-
-    context.globalCompositeOperation = 'lighter'
-
-    for (const star of twinkles) {
-      const alpha = 0.18 + Math.sin(seconds * star.speed + star.phase) ** 2 * 0.5
-      context.beginPath()
-      context.fillStyle = `rgba(255, 245, 250, ${alpha})`
-      context.arc(star.x, star.y, star.size, 0, Math.PI * 2)
-      context.fill()
-    }
-
-    for (const particle of particles) {
-      const pulse = Math.sin(seconds * particle.speed + particle.phase) * 0.6
-      const drift = Math.cos(seconds * particle.speed * 0.8 + particle.phase) * 0.55
-      const scale = scaleBase * (0.56 + particle.depth * 0.52) * beat
-      const x = centerX + (particle.x + drift * (1 - particle.depth)) * scale
-      const y = centerY + (particle.y + pulse * (1 - particle.depth)) * scale
-      const alpha = 0.38 + particle.depth * 0.55
-      const radius = particle.size * (0.72 + particle.depth * 1.35) * beat
-
-      context.beginPath()
-      context.fillStyle = `hsla(${particle.hue}, 100%, ${64 + particle.depth * 18}%, ${alpha})`
-      context.shadowBlur = 12 + particle.depth * 22
-      context.shadowColor = `hsla(${particle.hue}, 100%, 62%, 0.95)`
-      context.arc(x, y, radius, 0, Math.PI * 2)
-      context.fill()
-    }
-
-    context.shadowBlur = 0
-    context.globalCompositeOperation = 'screen'
-    context.strokeStyle = 'rgba(255, 225, 237, 0.18)'
-    context.lineWidth = 1.2
-    context.beginPath()
-
-    for (let index = 0; index <= 240; index += 1) {
-      const point = heartPoint((index / 240) * Math.PI * 2)
-      const x = centerX + point.x * scaleBase * 0.98 * beat
-      const y = centerY + point.y * scaleBase * 0.98 * beat
-
-      if (index === 0) {
-        context.moveTo(x, y)
-      } else {
-        context.lineTo(x, y)
-      }
-    }
-
-    context.closePath()
-    context.stroke()
     animationFrame = requestAnimationFrame(draw)
   }
 
-  reset()
-  window.addEventListener('resize', reset)
-  animationFrame = requestAnimationFrame(draw)
+  resize()
+  window.addEventListener('resize', resize)
+  draw()
 
   onBeforeUnmount(() => {
-    window.removeEventListener('resize', reset)
+    window.removeEventListener('resize', resize)
     cancelAnimationFrame(animationFrame)
+    gl.deleteBuffer(vertexDataBuffer)
+    gl.deleteProgram(program)
+    gl.deleteShader(vertexShader)
+    gl.deleteShader(fragmentShader)
   })
 })
 </script>
 
 <template>
-  <main class="app">
-    <canvas ref="canvas" class="heart-canvas" aria-label="粒子跳动爱心"></canvas>
-  </main>
+  <canvas id="canvas" ref="canvasRef"></canvas>
 </template>

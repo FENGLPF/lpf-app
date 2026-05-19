@@ -1,32 +1,10 @@
-* {
-  box-sizing: border-box;
-}
-
-html,
-body,
-#app {
-  width: 100%;
-  min-height: 100%;
-  margin: 0;
-}
-
 body {
-  min-height: 100vh;
-  background:
-    radial-gradient(circle at 50% 42%, rgba(255, 44, 128, 0.24), transparent 20%),
-    radial-gradient(circle at 24% 20%, rgba(87, 203, 255, 0.14), transparent 24%),
-    radial-gradient(circle at 76% 78%, rgba(255, 190, 92, 0.12), transparent 26%),
-    #05040d;
+  background-color: #000;
+  margin: 0;
   overflow: hidden;
+  background-repeat: no-repeat;
 }
 
-.app {
-  width: 100%;
-  min-height: 100vh;
-}
-
-.heart-canvas {
+#canvas {
   display: block;
-  width: 100vw;
-  height: 100vh;
 }
