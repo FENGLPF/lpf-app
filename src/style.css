@@ -10,11 +10,16 @@ body,
 }
 
 body {
+  min-height: 100vh;
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     sans-serif;
-  background: #f6f7fb;
-  color: #172033;
+  background:
+    radial-gradient(circle at 24% 18%, rgba(255, 196, 214, 0.75), transparent 30%),
+    radial-gradient(circle at 74% 16%, rgba(255, 235, 169, 0.7), transparent 24%),
+    linear-gradient(145deg, #fff7fb 0%, #f5f8ff 45%, #fff1f5 100%);
+  color: #362139;
+  overflow: hidden;
 }
 
 .app {
@@ -24,30 +29,185 @@ body {
   padding: 24px;
 }
 
-.panel {
-  width: min(100%, 560px);
-  padding: 32px;
-  border: 1px solid #d9deea;
-  border-radius: 8px;
-  background: #ffffff;
+.heart-scene {
+  position: relative;
+  width: min(76vw, 360px);
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  filter: drop-shadow(0 34px 36px rgba(202, 39, 83, 0.22));
 }
 
-.eyebrow {
-  margin: 0 0 12px;
-  font-size: 14px;
-  font-weight: 700;
-  color: #2f6fed;
+.glow {
+  position: absolute;
+  width: 84%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle, rgba(255, 67, 128, 0.36), transparent 58%),
+    radial-gradient(circle, rgba(255, 255, 255, 0.9), transparent 68%);
+  animation: glow-pulse 1.45s ease-in-out infinite;
 }
 
-h1 {
-  margin: 0;
-  font-size: 40px;
-  line-height: 1.1;
+.heart {
+  position: relative;
+  width: 42%;
+  aspect-ratio: 1;
+  transform: rotate(-45deg);
+  background: linear-gradient(135deg, #ff7aa8 0%, #ff2f74 48%, #b4124c 100%);
+  border-radius: 0 0 16% 0;
+  animation: heartbeat 1.15s ease-in-out infinite;
+  box-shadow:
+    inset 12px 12px 28px rgba(255, 255, 255, 0.33),
+    inset -16px -18px 32px rgba(128, 0, 46, 0.25),
+    0 22px 70px rgba(255, 47, 116, 0.48);
 }
 
-.description {
-  margin: 16px 0 0;
-  font-size: 16px;
-  line-height: 1.6;
-  color: #4e5a70;
+.heart::before,
+.heart::after {
+  content: "";
+  position: absolute;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: inherit;
+}
+
+.heart::before {
+  top: -50%;
+  left: 0;
+}
+
+.heart::after {
+  top: 0;
+  left: 50%;
+}
+
+.heart-scene::after {
+  content: "";
+  position: absolute;
+  bottom: 18%;
+  width: 42%;
+  height: 9%;
+  border-radius: 50%;
+  background: rgba(129, 47, 73, 0.13);
+  filter: blur(10px);
+  animation: shadow-pulse 1.15s ease-in-out infinite;
+}
+
+.spark {
+  position: absolute;
+  width: 10px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: #ff5b93;
+  box-shadow: 0 0 24px rgba(255, 91, 147, 0.65);
+  animation: float 3.4s ease-in-out infinite;
+}
+
+.spark::after {
+  content: "";
+  position: absolute;
+  inset: -7px;
+  border: 1px solid rgba(255, 91, 147, 0.32);
+  border-radius: inherit;
+}
+
+.spark-one {
+  top: 20%;
+  left: 18%;
+}
+
+.spark-two {
+  top: 15%;
+  right: 19%;
+  width: 8px;
+  animation-delay: -0.8s;
+  background: #ffcf5f;
+}
+
+.spark-three {
+  right: 14%;
+  bottom: 28%;
+  width: 12px;
+  animation-delay: -1.6s;
+  background: #ff8bb0;
+}
+
+.spark-four {
+  bottom: 22%;
+  left: 16%;
+  width: 7px;
+  animation-delay: -2.2s;
+  background: #f7a8ff;
+}
+
+.spark-five {
+  top: 48%;
+  left: 6%;
+  width: 6px;
+  animation-delay: -2.7s;
+  background: #ffcf5f;
+}
+
+@keyframes heartbeat {
+  0%,
+  100% {
+    transform: rotate(-45deg) scale(1);
+  }
+
+  14% {
+    transform: rotate(-45deg) scale(1.16);
+  }
+
+  28% {
+    transform: rotate(-45deg) scale(1);
+  }
+
+  42% {
+    transform: rotate(-45deg) scale(1.1);
+  }
+
+  70% {
+    transform: rotate(-45deg) scale(0.98);
+  }
+}
+
+@keyframes glow-pulse {
+  0%,
+  100% {
+    opacity: 0.7;
+    transform: scale(0.92);
+  }
+
+  45% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+}
+
+@keyframes shadow-pulse {
+  0%,
+  100% {
+    opacity: 0.18;
+    transform: scaleX(0.9);
+  }
+
+  45% {
+    opacity: 0.3;
+    transform: scaleX(1.08);
+  }
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0.8;
+  }
+
+  50% {
+    transform: translate3d(0, -18px, 0) scale(1.22);
+    opacity: 1;
+  }
 }
